@@ -1,0 +1,43 @@
+import React from 'react';
+import { Box, useStdout } from 'ink';
+
+interface LayoutProps {
+  left: React.ReactNode;
+  right: React.ReactNode;
+  bottom: React.ReactNode;
+  overlay?: React.ReactNode;
+}
+
+function getLeftPanelWidth(columns: number): number {
+  const proportionalWidth = Math.floor(columns * 0.3);
+  return Math.max(25, Math.min(proportionalWidth, 36));
+}
+
+export function Layout({ left, right, bottom, overlay }: LayoutProps): React.ReactElement {
+  const { stdout } = useStdout();
+  const columns = stdout.columns || 80;
+  const rows = stdout.rows || 24;
+  const leftPanelWidth = getLeftPanelWidth(columns);
+
+  return (
+    <Box flexDirection="column" width={columns} height={rows}>
+      <Box flexDirection="row" flexGrow={1} height={Math.max(3, rows - 1)}>
+        {overlay ? (
+          <Box width="100%" height="100%">
+            {overlay}
+          </Box>
+        ) : (
+          <>
+            <Box width={leftPanelWidth} flexShrink={0} height="100%">
+              {left}
+            </Box>
+            <Box flexGrow={1} height="100%">
+              {right}
+            </Box>
+          </>
+        )}
+      </Box>
+      <Box height={1}>{bottom}</Box>
+    </Box>
+  );
+}

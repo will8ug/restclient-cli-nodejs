@@ -1,0 +1,177 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import { resolveFileVariables, resolveVariables } from '../src/core/variables.js';
+import type { ParsedRequest } from '../src/core/types.js';
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+describe('resolveFileVariables', () => {
+  it('resolves file variables that reference other file variables', () => {
+    const resolved = resolveFileVariables([
+      { name: 'host', value: 'api.example.com' },
+      { name: 'baseUrl', value: 'https://{{host}}/v1' },
+    ]);
+
+    expect(resolved.get('host')).toBe('api.example.com');
+    expect(resolved.get('baseUrl')).toBe('https://api.example.com/v1');
+  });
+
+  it('resolves file variables that reference system variables', () => {
+    const resolved = resolveFileVariables([{ name: 'token', value: 'Bearer {{$timestamp}}' }]);
+
+    expect(resolved.get('token')).toMatch(/^Bearer \d+$/);
+  });
+});
+
+describe('resolveVariables', () => {
+  it('replaces file variables in request values', () => {
+    const resolved = resolveVariables(
+      createRequest({ url: 'https://{{host}}/users' }),
+      [{ name: 'host', value: 'api.example.com' }],
+    );
+
+    expect(resolved.url).toBe('https://api.example.com/users');
+  });
+
+  it('resolves $timestamp to a numeric string', () => {
+    const resolved = resolveVariables(
+      createRequest({ url: 'https://example.com/{{$timestamp}}' }),
+      [],
+    );
+
+    expect(resolved.url).toMatch(/^https:\/\/example\.com\/\d+$/);
+  });
+
+  it('resolves $guid to a UUID', () => {
+    const resolved = resolveVariables(createRequest({ body: 'id={{$guid}}' }), []);
+    const guid = resolved.body?.replace('id=', '');
+
+    expect(guid).toMatch(UUID_PATTERN);
+  });
+
+  it('resolves $randomInt without arguments to a value between 0 and 1000', () => {
+    const resolved = resolveVariables(createRequest({ body: '{{ $randomInt }}' }), []);
+    const value = Number.parseInt(resolved.body ?? '', 10);
+
+    expect(value).toBeGreaterThanOrEqual(0);
+    expect(value).toBeLessThanOrEqual(1000);
+  });
+
+  it('resolves $randomInt with an explicit range', () => {
+    const resolved = resolveVariables(createRequest({ body: '{{ $randomInt 1 100 }}' }), []);
+    const value = Number.parseInt(resolved.body ?? '', 10);
+
+    expect(value).toBeGreaterThanOrEqual(1);
+    expect(value).toBeLessThanOrEqual(100);
+  });
+
+  it('resolves process environment variables', () => {
+    const expectedHome = process.env.HOME;
+
+    expect(expectedHome).toBeDefined();
+
+    const resolved = resolveVariables(createRequest({ body: 'home={{$processEnv HOME}}' }), []);
+
+    expect(resolved.body).toBe(`home=${expectedHome}`);
+  });
+
+  it('resolves nested file variables that reference system variables', () => {
+    const resolved = resolveVariables(
+      createRequest({ headers: { Authorization: '{{token}}' } }),
+      [{ name: 'token', value: 'Bearer {{$timestamp}}' }],
+    );
+
+    expect(resolved.headers.Authorization).toMatch(/^Bearer \d+$/);
+  });
+
+  it('leaves missing file variables unchanged', () => {
+    const resolved = resolveVariables(createRequest({ url: 'https://{{missing}}/users' }), []);
+
+    expect(resolved.url).toBe('https://{{missing}}/users');
+  });
+
+  it('resolves variables in url, headers, and body', () => {
+    const request = createRequest({
+      url: 'https://{{host}}/users/{{$timestamp}}',
+      headers: {
+        Authorization: 'Bearer {{token}}',
+        'X-Trace-Id': '{{$guid}}',
+      },
+      body: '{"env":"{{$processEnv HOME}}","host":"{{host}}"}',
+    });
+
+    const resolved = resolveVariables(request, [
+      { name: 'host', value: 'api.example.com' },
+      { name: 'token', value: 'secret-token' },
+    ]);
+
+    expect(resolved.url).toMatch(/^https:\/\/api\.example\.com\/users\/\d+$/);
+    expect(resolved.headers.Authorization).toBe('Bearer secret-token');
+    expect(resolved.headers['X-Trace-Id']).toMatch(UUID_PATTERN);
+    expect(resolved.body).toBe(`{"env":"${process.env.HOME}","host":"api.example.com"}`);
+  });
+
+  it('resolves multiple variables in a single string', () => {
+    const resolved = resolveVariables(
+      createRequest({ body: 'https://{{host}}:{{port}}/users/{{$timestamp}}' }),
+      [
+        { name: 'host', value: 'localhost' },
+        { name: 'port', value: '3000' },
+      ],
+    );
+
+    expect(resolved.body).toMatch(/^https:\/\/localhost:3000\/users\/\d+$/);
+  });
+
+  it('parses dotenv files with comments and quoted values', () => {
+    const tempDirectory = mkdtempSync(join(tmpdir(), 'variables-test-'));
+    const dotenvPath = join(tempDirectory, '.env');
+
+    writeFileSync(
+      dotenvPath,
+      ['# comment', 'HOST=service.local', 'TOKEN="quoted value"', "NAME='single quoted'"]
+        .join('\n'),
+      'utf8',
+    );
+
+    try {
+      const resolved = resolveVariables(
+        createRequest({
+          body: '{{ $dotenv HOST }}|{{ $dotenv TOKEN }}|{{ $dotenv NAME }}',
+        }),
+        [],
+        dotenvPath,
+      );
+
+      expect(resolved.body).toBe('service.local|quoted value|single quoted');
+    } finally {
+      rmSync(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves missing process environment variables unchanged', () => {
+    const resolved = resolveVariables(
+      createRequest({ body: 'value={{$processEnv NONEXISTENT_VARIABLE_FOR_TESTS}}' }),
+      [],
+    );
+
+    expect(resolved.body).toBe('value={{$processEnv NONEXISTENT_VARIABLE_FOR_TESTS}}');
+  });
+});
+
+function createRequest(overrides: Partial<ParsedRequest> = {}): ParsedRequest {
+  return {
+    name: 'Test Request',
+    method: 'GET',
+    url: 'https://example.com',
+    headers: {},
+    body: undefined,
+    lineNumber: 1,
+    ...overrides,
+  };
+}

@@ -1,0 +1,55 @@
+import { existsSync, readFileSync } from 'node:fs';
+
+import React from 'react';
+import { render } from 'ink';
+
+import { App } from './app';
+import { parseHttpFile } from './core/parser';
+
+function exitWithError(message: string): never {
+  console.error(message);
+  process.exit(1);
+}
+
+const filePath = process.argv[2];
+
+if (!filePath) {
+  exitWithError('Usage: httptui <file.http>');
+}
+
+if (!existsSync(filePath)) {
+  exitWithError(`File not found: ${filePath}`);
+}
+
+const content = readFileSync(filePath, 'utf8');
+const parseResult = parseHttpFile(content);
+
+if (parseResult.requests.length === 0) {
+  exitWithError(`No requests found in ${filePath}`);
+}
+
+let alternateScreenActive = false;
+
+const restoreScreen = (): void => {
+  if (!alternateScreenActive || !process.stdout.isTTY) {
+    return;
+  }
+
+  process.stdout.write('\u001B[?1049l');
+  alternateScreenActive = false;
+};
+
+if (process.stdout.isTTY) {
+  process.stdout.write('\u001B[?1049h');
+  alternateScreenActive = true;
+}
+
+const app = render(
+  <App
+    filePath={filePath}
+    requests={parseResult.requests}
+    variables={parseResult.variables}
+  />,
+);
+
+void app.waitUntilExit().finally(restoreScreen);

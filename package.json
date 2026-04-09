@@ -1,0 +1,43 @@
+{
+  "name": "httptui",
+  "version": "0.1.0",
+  "description": "Interactive TUI for sending HTTP requests from .http files",
+  "type": "module",
+  "bin": {
+    "httptui": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/ test/",
+    "format": "prettier --write 'src/**/*.{ts,tsx}' 'test/**/*.ts'"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "http",
+    "rest",
+    "tui",
+    "terminal",
+    "cli",
+    "api",
+    "rest-client"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@inkjs/ui": "^2.0.0",
+    "ink": "^6.0.0",
+    "react": "^19.0.0",
+    "undici": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^3.0.0"
+  }
+}

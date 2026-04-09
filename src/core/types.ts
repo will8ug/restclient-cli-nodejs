@@ -1,0 +1,83 @@
+export type HttpMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'HEAD'
+  | 'OPTIONS';
+
+export interface ParsedRequest {
+  name: string;
+  method: HttpMethod;
+  url: string;
+  headers: Record<string, string>;
+  body: string | undefined;
+  lineNumber: number;
+}
+
+export interface ResolvedRequest {
+  method: HttpMethod;
+  url: string;
+  headers: Record<string, string>;
+  body: string | undefined;
+}
+
+export interface FileVariable {
+  name: string;
+  value: string;
+}
+
+export interface ParseResult {
+  requests: ParsedRequest[];
+  variables: FileVariable[];
+}
+
+export interface ResponseData {
+  statusCode: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: string;
+  timing: {
+    durationMs: number;
+  };
+  size: {
+    bodyBytes: number;
+  };
+}
+
+export interface RequestError {
+  message: string;
+  code?: string;
+}
+
+export type FocusedPanel = 'requests' | 'response';
+
+export interface AppState {
+  requests: ParsedRequest[];
+  variables: FileVariable[];
+  selectedIndex: number;
+  focusedPanel: FocusedPanel;
+  response: ResponseData | null;
+  isLoading: boolean;
+  error: RequestError | null;
+  verbose: boolean;
+  rawMode: boolean;
+  showHelp: boolean;
+  filePath: string;
+  responseScrollOffset: number;
+  requestScrollOffset: number;
+}
+
+export type Action =
+  | { type: 'SELECT_REQUEST'; index: number }
+  | { type: 'MOVE_SELECTION'; direction: 'up' | 'down' }
+  | { type: 'SEND_REQUEST' }
+  | { type: 'RECEIVE_RESPONSE'; response: ResponseData }
+  | { type: 'REQUEST_ERROR'; error: RequestError }
+  | { type: 'SWITCH_PANEL' }
+  | { type: 'TOGGLE_VERBOSE' }
+  | { type: 'TOGGLE_RAW' }
+  | { type: 'TOGGLE_HELP' }
+  | { type: 'SCROLL'; direction: 'up' | 'down' }
+  | { type: 'CLOSE_HELP' };

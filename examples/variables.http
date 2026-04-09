@@ -1,0 +1,18 @@
+@hostname = jsonplaceholder.typicode.com
+@baseUrl = https://{{hostname}}
+
+### Get posts
+GET {{baseUrl}}/posts
+
+### Get post with dynamic ID
+GET {{baseUrl}}/posts/{{$randomInt 1 100}}
+
+### Create post with timestamp
+POST {{baseUrl}}/posts
+Content-Type: application/json
+
+{
+  "title": "Post created at {{$timestamp}}",
+  "body": "This is a test post with ID {{$guid}}",
+  "userId": 1
+}
