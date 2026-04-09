@@ -20,6 +20,20 @@ httptui is a fast, keyboard-driven REST client that lives in your terminal. It p
 npm install -g httptui
 ```
 
+Or
+
+```bash
+# npm config get prefix
+# npm config set prefix "$HOME/.local"
+# npm config delete prefix
+
+cd restclient-cli-nodejs
+npm install
+npm link
+
+# npm unlink httptui
+```
+
 ## Usage
 
 ```bash
