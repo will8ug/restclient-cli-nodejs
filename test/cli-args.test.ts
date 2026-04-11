@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseArgs } from '../src/cli';
+import { parseArgs } from '../src/args';
 
 describe('parseArgs', () => {
   it('extracts file path without flags', () => {
