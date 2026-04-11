@@ -64,6 +64,7 @@ Interactive terminal UI built with Ink (React for CLI). Fullscreen alternate-buf
 | `Tab` | Any | Switch focus between panels |
 | `v` | Any | Toggle verbose mode (show/hide headers) |
 | `r` | Any | Toggle raw mode (no JSON formatting) |
+| `R` | Any | Reload file from disk |
 | `?` | Any | Toggle help overlay |
 | `q` | Any (no overlay) | Quit application |
 | `Escape` | Help overlay open | Close overlay |
@@ -95,3 +96,27 @@ Interactive terminal UI built with Ink (React for CLI). Fullscreen alternate-buf
 - `q` key: clean exit, restore terminal
 - `Ctrl+C`: clean exit, restore terminal
 - Unhandled error: exit with error message (outside alternate buffer)
+
+## File Reload
+
+### Action: RELOAD_FILE
+
+The TUI supports a `RELOAD_FILE` action that replaces the in-memory `requests` and `variables` with freshly parsed content from `filePath`. The action payload includes `requests` (ParsedRequest[]) and `variables` (FileVariable[]).
+
+- Successful reload: re-read file from `filePath`, parse it, dispatch `RELOAD_FILE` with the new data, request list reflects new contents
+- Selection preservation: if the currently selected request name still exists in the reloaded file, keep it selected; otherwise reset `selectedIndex` to 0
+- Reload clears `response`, `error`, and `responseScrollOffset`
+
+### Input: R key
+
+The `R` key (Shift+R) triggers file reload. The reload handler reads the file at `state.filePath` using `readFileSync`, parses it with `parseHttpFile`, and dispatches a `RELOAD_FILE` action with the result. If the file read or parse fails, the handler dispatches a `REQUEST_ERROR` action with the error message.
+
+- Lowercase `r` toggles raw mode (existing behavior), not reload
+
+### Reload Confirmation
+
+The status bar displays a temporary "Reloaded" confirmation (green, bold) when the file is reloaded. The message disappears after 2 seconds via a `CLEAR_RELOAD_MESSAGE` action dispatched by `setTimeout`.
+
+### Help Overlay
+
+The help overlay lists `R` as the "Reload file from disk" shortcut.
